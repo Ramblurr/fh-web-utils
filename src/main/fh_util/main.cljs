@@ -170,7 +170,7 @@
        ($ :p "A collection of simple utilities for Far Horizons: Delta Galaxy. All data stays in your browser, nothing is sent to anyone else.")
        ($ :p "Current features:")
        ($ :ul {:class (css :mb-4 {:list-style-type "disc"})}
-          ($ :li {:class (css :ml-8)} "Distance calculator"))
+          ($ :li {:class (css :ml-8)} "Distance calculator - Choose a star system, then you will see the distances from that system to all the other systems. Optionally enter your Gravitics tech level to calculate the mishap probability. "))
        ($ :h2 {:class (css :text-xl :pt-4)} "Species Info")
        ($ SpeciesInfo {:state state :on-species-change on-species-change})
        ($ :h2 {:class (css :text-xl :pt-4)} "Lookup System")
