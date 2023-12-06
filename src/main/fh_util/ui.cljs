@@ -18,7 +18,7 @@
                  (css :text-right)
                  (css :text-left))
         $base (css :border-b  :text-white :px-1 {:height "17px" :line-height "17px"})
-        $input-base (css :w-10)
+        $input-base (css :w-14)
         $form-color (if valid?
                       (css :bg-form-valid-500 :border-form-valid-400)
                       (css :bg-form-invalid-500 :border-form-invalid-400))]
