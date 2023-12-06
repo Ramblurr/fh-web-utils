@@ -5,4 +5,8 @@
   repl  (shell "clj -A:dev")
   repl-ui (shell "npx shadow-cljs run dev/start")
   repl-portal  (shell "clojure -A:dev -M:inspect/portal-cli-cider")
-  repl-term  (shell "clojure -A:test -A:dev -M:repl/cider-refactor")}}
+  repl-term  (shell "clojure -A:test -A:dev -M:repl/cider-refactor")
+  npm-install (shell "npm" "install")
+  build-css (shell "npx shadow-cljs run css/css-release")
+  build-js (shell "npx shadow-cljs release app")
+  }}
