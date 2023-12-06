@@ -26,6 +26,7 @@
 
 (def colors {:primary {:solid (css  :bg-rust-500 [:hover :bg-rust-400 :text-black] [:focus-visible :outline-rust-500])}
              :secondary {:solid (css :bg-hillary-500 [:hover :bg-hillary-400 :text-black] [:focus-visible :outline-hillary-500])}
+             :yellow {:solid (css :bg-yellow-600 [:hover :bg-yellow-400 :text-white] [:focus-visible :outline-yellow-500])}
              :destructive {:solid (css :bg-red-500 [:hover :bg-red-400] [:focus-visible :outline-red-500])}
              :create {:solid (css  :bg-sycamore-500 [:hover :bg-sycamore-400 :text-black] [:focus-visible :outline-sycamore-500])}})
 

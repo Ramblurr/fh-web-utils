@@ -63,32 +63,35 @@
     100.0
     (max 0.0 (min 100.0 (/ (* distance distance) gv)))))
 
-(defui System [{:keys [scanned? on-system-selected on-mark-scanned system has-distance? has-mishap? selected?]}]
+(defui System [{:keys [scanned? home? on-system-selected on-mark-scanned system has-distance? has-mishap? selected?]}]
   (let [{:keys [coord stellar-type]} system
         [x y z] coord
         $col (css :px-2 :text-right)
-        $scanned (when scanned? (css :bg-sycamore-500))
-        $selected (when selected?
-                    (css :bg-gray-500 :text-white :font-bold))]
+        $bg (cond
+              home? (css :bg-yellow-600)
+              scanned? (css :bg-sycamore-500)
+              selected?  (css :bg-gray-500))
+        $selected (when selected? (css :text-white :font-bold))]
     ($ :tr
-       ($ :td {:class (ui/cs $scanned $col $selected)} x)
-       ($ :td {:class (ui/cs $scanned $col $selected)} y)
-       ($ :td {:class (ui/cs $scanned $col $selected)} z)
-       ($ :td {:class (ui/cs $scanned $col $selected)} stellar-type)
+       ($ :td {:class (ui/cs $bg $col $selected)} x)
+       ($ :td {:class (ui/cs $bg $col $selected)} y)
+       ($ :td {:class (ui/cs $bg $col $selected)} z)
+       ($ :td {:class (ui/cs $bg $col $selected)} stellar-type)
        (when has-distance?
-         ($ :td {:class (ui/cs $scanned $col $selected)} (fmt-float (:distance system))))
+         ($ :td {:class (ui/cs $bg $col $selected)} (fmt-float (:distance system))))
        (when has-mishap?
-         ($ :td {:class (ui/cs $scanned $col $selected)} (str (fmt-float (:mishap system)) "%")))
+         ($ :td {:class (ui/cs $bg $col $selected)} (str (fmt-float (:mishap system)) "%")))
        ($ :td
           ($ :div {:class (css :flex :gap-2)}
-             ($ Button {:on-click (fn []
-                                    (on-mark-scanned (not scanned?) system))}
-                (if scanned?
-                  "unscan"
-                  "scan"))
+             (when (not home?)
+               ($ Button {:on-click (fn []
+                                      (on-mark-scanned (not scanned?) system))}
+                  (if scanned?
+                    "unscan"
+                    "scan")))
              (when (not selected?)
                ($ Button {:on-click (fn []
-                                      (on-system-selected system))} "choose")))))))
+                                      (on-system-selected (:coord system)))} "choose")))))))
 
 (defui Galaxy [{:keys [state on-system-selected on-mark-scanned]}]
   (let [{:keys [galaxy ui]} state
@@ -111,8 +114,9 @@
        ($ :tbody
           (for [system galaxy]
             ($ System {:key (:coord system)
+                       :home? (= (:coord system) (:home-system ui))
                        :scanned? (contains? scanned-systems (:coord system))
-                       :selected? (= (:coord system) (:coord active-system))
+                       :selected? (= (:coord system) active-system)
                        :has-mishap? has-mishap? :has-distance? has-distance? :system system :on-system-selected on-system-selected :on-mark-scanned on-mark-scanned}))))))
 
 (defn find-system [galaxy coord]
@@ -120,8 +124,8 @@
                    (= (:coord system) coord))
                  galaxy)))
 
-(defui LookupSystem [{:keys [on-system-selected state]}]
-  (let [[x y z] (-> state :ui :active-system :coord)
+(defui LookupSystem [{:keys [on-system-selected on-set-home state]}]
+  (let [[x y z] (-> state :ui :active-system)
         [values set-values] (uix/use-state {:x x :y y :z z})
         setter (fn [k] #(set-values (assoc values k (parse-long %))))]
     ($ :div {:class (css :flex :gap-2) :key [x y z]}
@@ -131,8 +135,13 @@
        ($ Button {:on-click (fn []
                               (let [coord [(:x values) (:y values) (:z values)]
                                     system (find-system (:galaxy state) coord)]
-                                (on-system-selected system)))}
-          "choose"))))
+                                (on-system-selected (:coord system))))}
+          "choose")
+       ($ Button {:color :yellow
+                  :on-click (fn []
+                              (let [system (find-system (:galaxy state) [x y z])]
+                                (on-set-home system)))}
+          "set home"))))
 
 (defn system-str [{:keys [coord stellar-type]}]
   (let [[x y z] coord]
@@ -144,11 +153,11 @@
                                   :min 0
                                   :max 200
                                   :type :number} :on-change #(on-species-change
-                                                              (assoc species :GV (parse-long %)))})))
+                                                              (assoc (or species {}) :GV (parse-long %)))})))
 
-(defn update-galaxy* [species galaxy system]
-  (if system
-    (->> (distances galaxy (:coord system))
+(defn update-galaxy* [species galaxy coord]
+  (if coord
+    (->> (distances galaxy coord)
          (map (fn [{:keys [distance] :as system}]
                 (let [gv (:GV species)]
                   (if gv
@@ -163,6 +172,8 @@
         set-state (fn [new-state]
                     (storage/set-item! "ui-state" (:ui new-state))
                     (set-state* new-state))
+
+        home-system (-> state :ui :home-system)
         update-galaxy (fn [state]
                         (assoc-in state [:galaxy] (update-galaxy* (-> state :ui :species) (:galaxy state) (-> state :ui :active-system))))
         on-species-change (fn [species]
@@ -174,6 +185,8 @@
         on-mark-scanned (fn [scanned? system]
                           (set-state
                            (update-in state [:ui :scanned-systems] (if scanned? conj disj) (:coord system))))
+        on-set-home (fn [system]
+                      (set-state (-> state (assoc-in [:ui :home-system] (:coord system)))))
         on-system-selected (fn [system]
                              (when system
                                (set-state
@@ -190,12 +203,25 @@
        ($ :h2 {:class (css :text-xl :pt-4)} "Species Info")
        ($ SpeciesInfo {:state state :on-species-change on-species-change})
        ($ :h2 {:class (css :text-xl :pt-4)} "Lookup System")
-       ($ LookupSystem {:state state :on-system-selected on-system-selected})
+       ($ LookupSystem {:state state :on-system-selected on-system-selected :on-set-home on-set-home})
        ($ :div  {:class (css :pt-4)}
+          ($ :div {:class (css :flex :gap-2)}
+
+             "Goto: "
+             (when home-system
+               ($ :button {:class (css {:text-decoration-line "underline"})
+                           :on-click (fn []
+                                       (on-system-selected home-system))} "Home")))
           ($ Galaxy {:state state :on-system-selected on-system-selected :on-mark-scanned on-mark-scanned})))))
 
+(defn retrieve-state! []
+  (let [value (storage/get-item "ui-state")]
+    (if (not value)
+      {:active-system nil :species nil :scanned-systems #{} :home-system nil :_version 1}
+      value)))
+
 (defn init [galaxy]
-  (let [{:keys [species active-system] :as ui-state} (or (storage/get-item "ui-state") {:active-system nil :species :nil :scanned-systems #{}})
+  (let [{:keys [species active-system] :as ui-state} (retrieve-state!)
         galaxy (if active-system
                  (update-galaxy* species galaxy active-system)
                  galaxy)
