@@ -18,3 +18,7 @@ pom.xml.asc
 
 .hgignore
 .hg/
+resources/public/js/generated
+.clj-kondo
+.cpcache
+.lsp

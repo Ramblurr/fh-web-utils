@@ -1,11 +1,9 @@
-;; shadow-cljs configuration
-{:source-paths
- ["src/dev"
-  "src/main"
-  "src/test"]
-
- :dependencies
- []
-
- :builds
- {}}
+{:deps {:aliases [:dev]}
+ :dev-http {8080 ["resources/public" "classpath:public"]}
+ :nrepl {:cider true
+         :middleware [portal.nrepl/wrap-portal refactor-nrepl.middleware/wrap-refactor]}
+ :builds {:app {:figwheel true
+                :target :browser
+                :output-dir "resources/public/js/generated"
+                :asset-path  "/js"
+                :modules {:main {:entries [fh-util.main]}}}}}
