@@ -3,7 +3,7 @@
    [clojure.string :as str]
    [fh-util.button :refer [Button]]
    [fh-util.localstorage :as storage]
-   [fh-util.ui :refer [Input]]
+   [fh-util.ui :as ui :refer [Input]]
    [goog.string :as gstring]
    [goog.string.format]
    [lambdaisland.fetch :as fetch]
@@ -65,19 +65,24 @@
 
 (defui System [{:keys [on-system-selected system has-distance? has-mishap?]}]
   (let [{:keys [coord stellar-type]} system
-        [x y z] coord]
+        [x y z] coord
+        selected? (== (:distance system) 0.0)
+        $col (css :px-2 :text-right)
+        $selected (when selected?
+                    (css :bg-gray-500 :text-white :font-bold))]
     ($ :tr
-       ($ :td {:class (css :px-2 :text-right)} x)
-       ($ :td {:class (css :px-2 :text-right)} y)
-       ($ :td {:class (css :px-2 :text-right)} z)
-       ($ :td {:class (css :px-2 :text-right)} stellar-type)
+       ($ :td {:class (ui/cs $col $selected)} x)
+       ($ :td {:class (ui/cs $col $selected)} y)
+       ($ :td {:class (ui/cs $col $selected)} z)
+       ($ :td {:class (ui/cs $col $selected)} stellar-type)
        (when has-distance?
-         ($ :td {:class (css :px-2 :text-right)} (fmt-float (:distance system))))
+         ($ :td {:class (ui/cs $col $selected)} (fmt-float (:distance system))))
        (when has-mishap?
-         ($ :td {:class (css :px-2 :text-right)} (str (fmt-float (:mishap system)) "%")))
+         ($ :td {:class (ui/cs $col $selected)} (str (fmt-float (:mishap system)) "%")))
        ($ :td
-          ($ Button {:on-click (fn []
-                                 (on-system-selected system))} "choose")))))
+          (when (not selected?)
+            ($ Button {:on-click (fn []
+                                   (on-system-selected system))} "choose"))))))
 
 (defui Galaxy [{:keys [galaxy on-system-selected]}]
   (let [has-distance? (some? (:distance (first galaxy)))
@@ -168,9 +173,9 @@
           ($ :li {:class (css :ml-8)} "Distance calculator"))
        ($ :h2 {:class (css :text-xl :pt-4)} "Species Info")
        ($ SpeciesInfo {:state state :on-species-change on-species-change})
-       ($ :h2 {:class (css :text-xl :pt-4 )} "Lookup System")
+       ($ :h2 {:class (css :text-xl :pt-4)} "Lookup System")
        ($ LookupSystem {:state state :on-system-selected on-system-selected})
-       ($ :div  {:class (css :pt-4 )}
+       ($ :div  {:class (css :pt-4)}
           (if (:selected state)
             ($ Distance {:state state :on-system-selected on-system-selected})
             ($ Galaxy {:galaxy (:galaxy state) :on-system-selected on-system-selected}))))))
