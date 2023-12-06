@@ -24,7 +24,7 @@
                       (css :bg-form-invalid-500 :border-form-invalid-400))]
     ($ :div {:class (css :flex)}
        (when prefix
-         ($ :div {:class (cs (css :inline-block :border-r-2 :font-bold) $align $base $form-color)} prefix))
+         ($ :div {:class (cs (css :inline-block :border-r-2 ) $align $base $form-color)} prefix))
        ($ :input (merge {:on-change #(on-change (.. % -target -value)) :class (cs $align $base $form-color $input-base) :type "text"} form attr))
        (when suffix
          ($ :div {:class (cs (css :inline-block) $align $base $form-color)} suffix)))))

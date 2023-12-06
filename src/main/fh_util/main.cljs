@@ -63,29 +63,37 @@
     100.0
     (max 0.0 (min 100.0 (/ (* distance distance) gv)))))
 
-(defui System [{:keys [on-system-selected system has-distance? has-mishap?]}]
+(defui System [{:keys [scanned? on-system-selected on-mark-scanned system has-distance? has-mishap? selected?]}]
   (let [{:keys [coord stellar-type]} system
         [x y z] coord
-        selected? (== (:distance system) 0.0)
         $col (css :px-2 :text-right)
+        $scanned (when scanned? (css :bg-sycamore-500))
         $selected (when selected?
                     (css :bg-gray-500 :text-white :font-bold))]
     ($ :tr
-       ($ :td {:class (ui/cs $col $selected)} x)
-       ($ :td {:class (ui/cs $col $selected)} y)
-       ($ :td {:class (ui/cs $col $selected)} z)
-       ($ :td {:class (ui/cs $col $selected)} stellar-type)
+       ($ :td {:class (ui/cs $scanned $col $selected)} x)
+       ($ :td {:class (ui/cs $scanned $col $selected)} y)
+       ($ :td {:class (ui/cs $scanned $col $selected)} z)
+       ($ :td {:class (ui/cs $scanned $col $selected)} stellar-type)
        (when has-distance?
-         ($ :td {:class (ui/cs $col $selected)} (fmt-float (:distance system))))
+         ($ :td {:class (ui/cs $scanned $col $selected)} (fmt-float (:distance system))))
        (when has-mishap?
-         ($ :td {:class (ui/cs $col $selected)} (str (fmt-float (:mishap system)) "%")))
+         ($ :td {:class (ui/cs $scanned $col $selected)} (str (fmt-float (:mishap system)) "%")))
        ($ :td
-          (when (not selected?)
-            ($ Button {:on-click (fn []
-                                   (on-system-selected system))} "choose"))))))
+          ($ :div {:class (css :flex :gap-2)}
+             ($ Button {:on-click (fn []
+                                    (on-mark-scanned (not scanned?) system))}
+                (if scanned?
+                  "unscan"
+                  "scan"))
+             (when (not selected?)
+               ($ Button {:on-click (fn []
+                                      (on-system-selected system))} "choose")))))))
 
-(defui Galaxy [{:keys [galaxy on-system-selected]}]
-  (let [has-distance? (some? (:distance (first galaxy)))
+(defui Galaxy [{:keys [state on-system-selected on-mark-scanned]}]
+  (let [{:keys [galaxy ui]} state
+        {:keys [scanned-systems active-system]} ui
+        has-distance? (some? (:distance (first galaxy)))
         has-mishap? (some? (:mishap (first galaxy)))]
     ($ :table
        ($ :thead
@@ -102,7 +110,10 @@
 
        ($ :tbody
           (for [system galaxy]
-            ($ System {:key (:coord system) :has-mishap? has-mishap? :has-distance? has-distance? :system system :on-system-selected on-system-selected}))))))
+            ($ System {:key (:coord system)
+                       :scanned? (contains? scanned-systems (:coord system))
+                       :selected? (= (:coord system) (:coord active-system))
+                       :has-mishap? has-mishap? :has-distance? has-distance? :system system :on-system-selected on-system-selected :on-mark-scanned on-mark-scanned}))))))
 
 (defn find-system [galaxy coord]
   (first (filter (fn [system]
@@ -110,10 +121,10 @@
                  galaxy)))
 
 (defui LookupSystem [{:keys [on-system-selected state]}]
-  (let [[x y z] (-> state :selected :coord)
+  (let [[x y z] (-> state :ui :active-system :coord)
         [values set-values] (uix/use-state {:x x :y y :z z})
         setter (fn [k] #(set-values (assoc values k (parse-long %))))]
-    ($ :div {:class (css :flex :gap-2)}
+    ($ :div {:class (css :flex :gap-2) :key [x y z]}
        ($ Input {:prefix "X" :attr {:type :number :defaultValue x} :on-change (setter :x)})
        ($ Input {:prefix "Y" :attr {:type :number :defaultValue y} :on-change (setter :y)})
        ($ Input {:prefix "Z" :attr {:type :number :defaultValue z} :on-change (setter :z)})
@@ -127,44 +138,49 @@
   (let [[x y z] coord]
     (str "x = " x " y = " y " z = " z " stellar type = " stellar-type)))
 
-(defui Distance [{:keys [state on-system-selected]}]
-  (let [system (:selected state)
-        d (->> (distances (:galaxy state) (:coord system))
-               (map (fn [{:keys [coord distance] :as system}]
-                      (let [gv (:GV (:species state))]
-                        (if gv
-                          (assoc system :mishap (calc-mishap-probability gv distance))
-                          system))))
-
-               (sort-nearest))]
-
-    ($ :div
-       ($ :h3 {:class (css :text-xl)}
-          (str "Active System: " (system-str system)))
-       ($ Galaxy {:galaxy d :on-system-selected on-system-selected}))))
-
 (defui SpeciesInfo [{:keys [state on-species-change]}]
-  (let [species (:species state)]
-    ($ Input {:prefix "GV" :attr {:defaultValue (or (:GV species) js/undefined)
+  (let [species (-> state :ui :species)]
+    ($ Input {:prefix "GV" :attr {:value (or (:GV species) js/undefined)
                                   :min 0
                                   :max 200
                                   :type :number} :on-change #(on-species-change
                                                               (assoc species :GV (parse-long %)))})))
 
-(defui App [{:keys [galaxy]}]
-  (let [[state set-state] (uix/use-state {:galaxy galaxy
-                                          :selected (storage/get-item "active-system")
-                                          :species (storage/get-item "species")})
+(defn update-galaxy* [species galaxy system]
+  (if system
+    (->> (distances galaxy (:coord system))
+         (map (fn [{:keys [distance] :as system}]
+                (let [gv (:GV species)]
+                  (if gv
+                    (assoc system :mishap (calc-mishap-probability gv distance))
+                    system))))
+
+         (sort-nearest))
+    galaxy))
+
+(defui App [{:keys [initial-state]}]
+  (let [[state set-state*] (uix/use-state initial-state)
+        set-state (fn [new-state]
+                    (storage/set-item! "ui-state" (:ui new-state))
+                    (set-state* new-state))
+        update-galaxy (fn [state]
+                        (assoc-in state [:galaxy] (update-galaxy* (-> state :ui :species) (:galaxy state) (-> state :ui :active-system))))
         on-species-change (fn [species]
                             (when species
-                              (storage/set-item! "species" species)
                               (set-state
-                               (assoc-in state [:species] species))))
+                               (-> state
+                                   (assoc-in  [:ui :species] species)
+                                   (update-galaxy)))))
+        on-mark-scanned (fn [scanned? system]
+                          (set-state
+                           (update-in state [:ui :scanned-systems] (if scanned? conj disj) (:coord system))))
         on-system-selected (fn [system]
                              (when system
-                               (storage/set-item! "active-system" system)
                                (set-state
-                                (assoc-in state [:selected] system))))]
+                                (-> state
+                                    (assoc-in [:ui :active-system] system)
+                                    (update-galaxy)))))]
+
     ($ :.app {:class (css :p-2)}
        ($ :h1 {:class (css :text-3xl :mb-4)} "FH Web Utils")
        ($ :p "A collection of simple utilities for Far Horizons: Delta Galaxy. All data stays in your browser, nothing is sent to anyone else.")
@@ -176,13 +192,16 @@
        ($ :h2 {:class (css :text-xl :pt-4)} "Lookup System")
        ($ LookupSystem {:state state :on-system-selected on-system-selected})
        ($ :div  {:class (css :pt-4)}
-          (if (:selected state)
-            ($ Distance {:state state :on-system-selected on-system-selected})
-            ($ Galaxy {:galaxy (:galaxy state) :on-system-selected on-system-selected}))))))
+          ($ Galaxy {:state state :on-system-selected on-system-selected :on-mark-scanned on-mark-scanned})))))
 
 (defn init [galaxy]
-  (let [root (uix.dom/create-root (js/document.getElementById "root"))]
-    (uix.dom/render-root ($ App {:galaxy galaxy}) root)
+  (let [{:keys [species active-system] :as ui-state} (or (storage/get-item "ui-state") {:active-system nil :species :nil :scanned-systems #{}})
+        galaxy (if active-system
+                 (update-galaxy* species galaxy active-system)
+                 galaxy)
+        root (uix.dom/create-root (js/document.getElementById "root"))]
+    (uix.dom/render-root ($ App {:initial-state {:galaxy galaxy
+                                                 :ui ui-state}}) root)
     nil))
 
 (defn ^:export main []
