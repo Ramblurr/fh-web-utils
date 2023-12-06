@@ -3,13 +3,15 @@
 
          ;; CLJS
          org.clojure/clojurescript {:mvn/version "1.11.121"}
-         thheller/shadow-cljs      {:mvn/version "2.26.2"}}
+         thheller/shadow-cljs      {:mvn/version "2.26.2"}
+         lambdaisland/fetch        {:mvn/version "1.5.83"}
+         com.pitch/uix.core          {:mvn/version "1.0.1"}
+         com.pitch/uix.dom           {:mvn/version "1.0.1"}
+         metosin/reitit-frontend     {:mvn/version "0.7.0-alpha5"}
+         }
 
  :aliases
  {
-  :run-x {:ns-default ui.ui-poc
-          :exec-fn    greet
-          :exec-args  {:name "Clojure"}}
   :build {:deps       {io.github.seancorfield/build-clj
                        {:git/tag   "v0.9.2" :git/sha "9c9f078"
                         ;; since we're building an app uberjar, we do not
@@ -22,6 +24,8 @@
                         {:git/tag "v0.5.1" :git/sha "dfb30dd"}}}
   :dev   {:extra-paths ["src/dev"]
           :extra-deps  {;; REPL
+                         binaryage/devtools            {:mvn/version "1.0.7"}
+                        com.thheller/shadow-css       {:mvn/version "0.4.4"}
                         djblue/portal                 {:mvn/version "0.50.0"}
                         nrepl/nrepl                   {:mvn/version "1.1.0"}
                         cider/cider-nrepl             {:mvn/version "0.44.0"}

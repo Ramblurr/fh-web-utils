@@ -6,4 +6,6 @@
                 :target :browser
                 :output-dir "resources/public/js/generated"
                 :asset-path  "/js"
+                :devtools {:preloads [devtools.preload
+                                      portal.shadow.preload]}
                 :modules {:main {:entries [fh-util.main]}}}}}

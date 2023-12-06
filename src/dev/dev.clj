@@ -1,7 +1,8 @@
 (ns dev
   (:require
    [shadow.cljs.devtools.api :as shadow]
-   [portal.api :as p]))
+   [portal.api :as p]
+   [css :as css]))
 
 (defn start
   {:shadow/requires-server true}
@@ -10,7 +11,7 @@
   (shadow/watch :app)
   ;; ..and tests
   ;; (shadow/watch :browser-test)
-
+  (css/watch-css)
   ;; Open a JVM portal instance that will host a port for remote portal clients to connect to
   (p/open {:theme :portal.colors/gruvbox
            :port 5678})
@@ -27,6 +28,7 @@
   ::started)
 
 (defn stop []
+(css/watch-stop)
   ::stopped)
 
 (defn go []
